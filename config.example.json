@@ -1,0 +1,21 @@
+{
+  "cache_ttl_seconds": 5,
+  "editor_command": "code",
+  "terminal_command": null,
+  "log_level": "warning",
+
+  "indicators": {
+    "git_repo": { "enabled": true, "emblem": "emblem-repo-git" },
+    "claude_dir": { "enabled": true, "emblem": "emblem-repo-claude" },
+    "uncommitted_changes": { "enabled": true, "emblem": "emblem-repo-dirty" },
+    "unpushed_commits": { "enabled": true, "emblem": "emblem-repo-unpushed" }
+  },
+
+  "actions": {
+    "open_terminal": true,
+    "open_editor": true,
+    "git_status": true,
+    "git_log": true,
+    "git_pull": true
+  }
+}
