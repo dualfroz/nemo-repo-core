@@ -18,15 +18,25 @@ def parseVersion(text):
     return tuple(parts[:3])
 
 
+def breakingSeries(parts):
+    """The leading components that have to match exactly for compatibility.
+
+    From 1.0.0 on that is the major component alone. While the major is 0 the
+    API is still allowed to change with every minor bump, so 0.1 and 0.2 are
+    treated as different series and neither can serve the other.
+    """
+    return parts[:2] if parts[0] == 0 else parts[:1]
+
+
 def satisfies(installed, minimum):
     """True when `installed` can serve a plugin that asked for `minimum`.
 
-    The rule is plain semantic versioning: the major component must match
-    exactly, and the rest must be greater than or equal to the requirement.
+    Semantic versioning: the breaking component must match exactly and the
+    version as a whole must be greater than or equal to the requirement.
     """
     installedParts = parseVersion(installed)
     minimumParts = parseVersion(minimum)
-    if installedParts[0] != minimumParts[0]:
+    if breakingSeries(installedParts) != breakingSeries(minimumParts):
         return False
     return installedParts >= minimumParts
 
@@ -42,6 +52,6 @@ def requireCore(minimumVersion):
     if not satisfies(coreVersion, minimumVersion):
         raise CoreVersionError(
             "nemo-repo-core %s cannot satisfy the required version %s; "
-            "update the core library" % (coreVersion, minimumVersion)
+            "install a core compatible with %s" % (coreVersion, minimumVersion, minimumVersion)
         )
     return coreVersion
