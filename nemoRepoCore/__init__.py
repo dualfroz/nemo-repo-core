@@ -38,6 +38,11 @@ Stability policy for everything listed in __all__:
     may reshape anything.
   * Names not in __all__, and anything with a leading underscore, are
     internal and may change in any release.
+
+The public names are camelCase rather than PEP 8 snake_case on purpose: it is
+the naming convention used across this author's projects. Only the methods
+Nemo itself calls (update_file_info, get_columns and friends) keep the names
+the file manager requires.
 """
 
 from .Config import Config, coreConfig, coreDefaults, defaultConfigPath, legacyConfigPath

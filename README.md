@@ -315,6 +315,15 @@ From `1.0.0` on, the guarantee below is the written one and holds:
 Anything not in the API table, and anything with a leading underscore, is
 internal either way.
 
+## Naming
+
+The API is camelCase, including in Python where PEP 8 would ask for
+snake_case. That is deliberate rather than an oversight: camelCase is the
+naming convention used across this author's projects, and consistency across
+them is valued over each language's own idiom. The one exception is the methods
+Nemo itself calls (`update_file_info`, `get_columns`, `get_file_items` and
+friends), which have to keep the names the file manager looks for.
+
 ## Tested on
 
 Linux Mint 22.2 (Zara), Cinnamon 6.4.14, Nemo 6.4.5, python-nemo 6.4.0,
