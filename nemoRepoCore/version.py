@@ -1,6 +1,6 @@
 """Version of the core library and the compatibility check plugins call."""
 
-coreVersion = "1.0.0"
+coreVersion = "0.1.0"
 
 
 class CoreVersionError(RuntimeError):

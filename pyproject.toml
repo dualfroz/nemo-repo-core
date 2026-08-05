@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nemo-repo-core"
-version = "1.0.0"
+version = "0.1.0"
 description = "Shared foundation for repository-aware Nemo file manager plugins"
 readme = "README.md"
 requires-python = ">=3.8"

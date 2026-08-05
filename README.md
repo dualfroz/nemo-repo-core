@@ -157,12 +157,13 @@ _ensureCoreOnPath()
 
 ```python
 from nemoRepoCore import requireCore
-requireCore("1.0.0")
+requireCore("0.1.0")
 ```
 
-If the installed core is too old, or a major version apart, this raises and
-Nemo skips the extension with a clear message in the log instead of loading a
-half working one.
+If the installed core is too old, or from a different incompatible series,
+this raises and Nemo skips the extension with a clear message in the log
+instead of loading a half working one. See "Versioning" for what counts as a
+different series while the core is still `0.x`.
 
 ### 3. Register your defaults
 
@@ -295,14 +296,24 @@ When `error` is set, treat every other field as unknown.
 
 Semantic versioning, enforced at load time by `requireCore`.
 
+The core is at `0.1.0`, which in semver means the API is not settled yet: its
+only consumers are the five plugins listed above and it has no outside users.
+Until `1.0.0`, any minor bump may remove or rename anything in the API table.
+`requireCore` follows the same rule and treats the minor as the breaking
+component while the major is `0`, so a plugin that asked for `0.1.0` refuses to
+load against `0.2.0` instead of breaking somewhere deeper.
+
+From `1.0.0` on, the guarantee below is the written one and holds:
+
 - Within a major version nothing in the API table is removed or renamed, and
   signatures only ever gain optional arguments. A plugin that asked for `1.0.0`
   keeps working on `1.4.0`.
 - A major bump may change anything. `requireCore` refuses to run a plugin
   against a different major version, so the failure is loud and immediate
   rather than subtle.
-- Anything not in the API table, and anything with a leading underscore, is
-  internal.
+
+Anything not in the API table, and anything with a leading underscore, is
+internal either way.
 
 ## Tested on
 

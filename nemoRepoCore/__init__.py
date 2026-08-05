@@ -10,7 +10,7 @@ Minimal plugin:
 
     from nemoRepoCore import (coreConfig, findRepoRoot, localDirectoryPath,
                               repoCache, requireCore)
-    requireCore("1.0.0")
+    requireCore("0.1.0")
 
     coreConfig.registerDefaults({"indicators": {"mine": {"enabled": True}}})
 
@@ -28,12 +28,14 @@ Minimal plugin:
 
 Stability policy for everything listed in __all__:
 
-  * Within a major version, names are never removed and signatures only ever
-    gain optional arguments. New helpers may appear; a plugin that asked for
-    1.0.0 keeps working on 1.4.0.
-  * A major bump may remove or reshape anything. requireCore() refuses to
-    load a plugin against a different major, so a mismatch is a clear error
-    at startup instead of a subtle misbehaviour later.
+  * The core is 0.x, so the API is not settled yet: any 0.x minor bump may
+    remove or reshape anything. requireCore() knows this and treats the minor
+    as the breaking component while the major is 0, so a plugin that asked
+    for 0.1.0 refuses to load against 0.2.0 instead of misbehaving later.
+  * From 1.0.0 on the usual guarantee applies: within a major version names
+    are never removed and signatures only ever gain optional arguments, so a
+    plugin that asked for 1.0.0 keeps working on 1.4.0, and only a major bump
+    may reshape anything.
   * Names not in __all__, and anything with a leading underscore, are
     internal and may change in any release.
 """
