@@ -1,20 +1,9 @@
-"""The snapshot of a repository that every plugin reads."""
-
 from collections import namedtuple
 
 LastCommit = namedtuple("LastCommit", "hash author relativeDate subject")
 
 
 class RepoInfo:
-    """Everything one `git status` and one `git log -1` can tell us.
-
-    Instances are immutable in practice: the cache hands the same object to
-    every caller for the lifetime of a cache entry, so plugins must treat
-    the fields as read-only.
-
-    When `error` is set, every other field is at its zero value and must not
-    be displayed as fact.
-    """
 
     __slots__ = ("root", "branch", "upstream", "ahead", "behind", "hasUpstream",
                  "staged", "unstaged", "untracked", "lastCommit", "error")
@@ -38,7 +27,6 @@ class RepoInfo:
 
     @property
     def unpushed(self):
-        """Commits the remote does not have, including "there is no remote"."""
         return self.ahead > 0 or not self.hasUpstream
 
     @property
@@ -51,7 +39,6 @@ class RepoInfo:
 
     @property
     def summary(self):
-        """One ASCII line combining sync state and working tree state."""
         if self.error:
             return self.error
         parts = []

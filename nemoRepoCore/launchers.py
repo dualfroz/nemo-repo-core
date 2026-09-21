@@ -1,11 +1,3 @@
-"""Starting a terminal or an editor from a Nemo menu item.
-
-Terminal emulators disagree about the flag that means "run this command",
-so the mapping below is explicit rather than assuming one form works
-everywhere. Unknown emulators fall back to -e, which is the oldest and most
-widely accepted spelling.
-"""
-
 import os
 import shutil
 import subprocess
@@ -45,7 +37,6 @@ fallbackCommandFlags = ["-e"]
 
 
 def resolveTerminal():
-    """The terminal command to use: the configured one, else the first found."""
     configured = coreConfig.terminalCommand
     if configured and shutil.which(configured.split(" ")[0]):
         return configured
@@ -60,11 +51,6 @@ def _commandFlagsFor(terminal):
 
 
 def launchTerminal(path, shellCommand=None):
-    """Open a terminal in `path`, optionally running `shellCommand` first.
-
-    The shell stays open afterwards so the user can read the output of
-    whatever was run and keep working in the same directory.
-    """
     terminal = resolveTerminal()
     if not terminal:
         logger.warning("No terminal emulator found; tried %s",
@@ -87,7 +73,6 @@ def launchTerminal(path, shellCommand=None):
 
 
 def launchEditor(path):
-    """Open `path` in the configured editor command."""
     editor = coreConfig.editorCommand
     parts = editor.split(" ")
     if not shutil.which(parts[0]):
@@ -102,5 +87,4 @@ def launchEditor(path):
 
 
 def editorAvailable():
-    """True when the configured editor command can actually be started."""
     return shutil.which(coreConfig.editorCommand.split(" ")[0]) is not None

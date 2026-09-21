@@ -1,5 +1,3 @@
-"""Everything that shells out to git lives here, and nowhere else."""
-
 import os
 import shutil
 import subprocess
@@ -15,12 +13,6 @@ defaultTimeoutSeconds = 3
 
 
 def runGit(arguments, cwd, timeoutSeconds=defaultTimeoutSeconds):
-    """Run git and return stdout as text, or None when it could not run.
-
-    Never raises and never blocks Nemo for long: stderr is discarded, index
-    locks are avoided via GIT_OPTIONAL_LOCKS, and the call is capped by a
-    timeout. A None result always means "no answer", never "empty answer".
-    """
     if not gitBinary:
         return None
     environment = dict(os.environ)
@@ -67,11 +59,6 @@ def _applyStatusLine(info, line):
 
 
 def computeRepoInfo(repoRoot):
-    """Build a fresh RepoInfo for `repoRoot`, bypassing any cache.
-
-    Plugins should normally call repoCache.get() instead; this is the
-    uncached primitive behind it.
-    """
     info = RepoInfo(repoRoot)
     if not gitBinary:
         info.error = "git not found in PATH"

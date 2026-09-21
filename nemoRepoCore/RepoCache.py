@@ -1,11 +1,3 @@
-"""TTL cache in front of git, invalidated eagerly by watching .git.
-
-Without this, Nemo would fork a git process for every folder it draws, on
-every redraw. With it, a repository is queried at most once per TTL, and the
-entry is dropped the moment .git changes so a commit or checkout shows up
-immediately instead of after the TTL.
-"""
-
 import os
 import time
 import weakref
@@ -20,7 +12,6 @@ logger = pluginLogger("cache")
 
 
 class RepoCache:
-    """Keyed by repository root path. Shared by every plugin in the family."""
 
     def __init__(self, ttlProvider):
         self._ttlProvider = ttlProvider
@@ -30,7 +21,6 @@ class RepoCache:
         self._invalidateCallbacks = []
 
     def get(self, repoRoot):
-        """Cached RepoInfo for `repoRoot`, computing it when stale or absent."""
         now = time.monotonic()
         entry = self._entries.get(repoRoot)
         if entry is not None:
@@ -40,14 +30,12 @@ class RepoCache:
         return self.refresh(repoRoot)
 
     def refresh(self, repoRoot):
-        """Recompute now, ignoring the TTL, and store the result."""
         info = computeRepoInfo(repoRoot)
         self._entries[repoRoot] = (info, time.monotonic())
         self._ensureWatch(repoRoot)
         return info
 
     def invalidate(self, repoRoot=None):
-        """Drop one entry, or the whole cache when called without argument."""
         if repoRoot is None:
             roots = list(self._entries)
             self._entries.clear()
@@ -57,11 +45,6 @@ class RepoCache:
             self._notify(root)
 
     def registerFileObject(self, repoRoot, nemoFile):
-        """Track a live Nemo.FileInfo so it can be redrawn on git changes.
-
-        References are weak: Nemo owns the object's lifetime, we only ask it
-        to re-query us when the repository underneath it moves.
-        """
         tracked = self._trackedFiles.setdefault(repoRoot, weakref.WeakSet())
         try:
             tracked.add(nemoFile)
@@ -69,10 +52,7 @@ class RepoCache:
             logger.debug("Object for %s is not weak-referenceable", repoRoot)
 
     def onInvalidate(self, callback):
-        """Register `callback(repoRoot)`, run whenever an entry is dropped."""
         self._invalidateCallbacks.append(callback)
-
-    # -- internals ----------------------------------------------------------
 
     def _notify(self, repoRoot):
         for nemoFile in list(self._trackedFiles.get(repoRoot, ())):

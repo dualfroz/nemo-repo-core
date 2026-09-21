@@ -1,24 +1,6 @@
-"""The single JSON config file shared by the core and all of its plugins.
-
-Layout on disk (every key optional, plugins fill in their own defaults):
-
-    {
-      "cache_ttl_seconds": 5,
-      "editor_command": "code",
-      "terminal_command": null,
-      "log_level": "warning",
-      "indicators": { ... },      // owned by whichever plugin registers them
-      "actions": { ... }
-    }
-
-Keys use the JSON spelling they have always had, so a config written for the
-pre-split single-file extension keeps working unchanged.
-"""
-
 import copy
 import json
 import os
-import shutil
 
 from gi.repository import Gio, GLib
 
@@ -27,7 +9,6 @@ from .logs import applyLogLevel, pluginLogger
 logger = pluginLogger("config")
 
 configFileName = "nemo-repo-core.json"
-legacyConfigFileName = "nemo-repo-emblems.json"
 
 coreDefaults = {
     "cache_ttl_seconds": 5,
@@ -48,12 +29,7 @@ def defaultConfigPath():
     return os.path.join(configDirectory(), configFileName)
 
 
-def legacyConfigPath():
-    return os.path.join(configDirectory(), legacyConfigFileName)
-
-
 def mergeDictionaries(base, overlay):
-    """Recursive merge; `overlay` wins, dictionaries merge instead of replace."""
     merged = copy.deepcopy(base)
     for key, value in overlay.items():
         if isinstance(value, dict) and isinstance(merged.get(key), dict):
@@ -64,11 +40,6 @@ def mergeDictionaries(base, overlay):
 
 
 class Config:
-    """Live view of the config file, reloaded whenever the file changes.
-
-    Effective values are the merge of three layers, later ones winning:
-    core defaults, defaults registered by plugins, then the user's file.
-    """
 
     def __init__(self, path=None):
         self.path = path or defaultConfigPath()
@@ -81,14 +52,7 @@ class Config:
         self.reload()
         self._watchFile()
 
-    # -- layers ------------------------------------------------------------
-
     def registerDefaults(self, defaults):
-        """Add a plugin's default block, then recompute effective values.
-
-        Safe to call from several plugins; blocks are deep-merged, so two
-        plugins can both contribute keys to the same section.
-        """
         self.defaults = mergeDictionaries(self.defaults, defaults)
         self._recompute()
 
@@ -96,10 +60,7 @@ class Config:
         self.data = mergeDictionaries(self.defaults, self.userData)
         applyLogLevel(self.data.get("log_level", "warning"))
 
-    # -- reading -----------------------------------------------------------
-
     def section(self, name):
-        """Merged sub-object for `name`, or an empty dict when absent."""
         value = self.data.get(name)
         return value if isinstance(value, dict) else {}
 
@@ -131,13 +92,8 @@ class Config:
     def terminalCommand(self):
         return self.data.get("terminal_command")
 
-    # -- change notification ------------------------------------------------
-
     def onChange(self, callback):
-        """Register `callback()` to run after every successful reload."""
         self._changeCallbacks.append(callback)
-
-    # -- file handling -------------------------------------------------------
 
     def _createFileIfMissing(self):
         if os.path.exists(self.path):
@@ -145,11 +101,6 @@ class Config:
         directory = os.path.dirname(self.path)
         try:
             os.makedirs(directory, exist_ok=True)
-            legacy = legacyConfigPath()
-            if os.path.isfile(legacy):
-                shutil.copyfile(legacy, self.path)
-                logger.info("Migrated config from %s to %s", legacy, self.path)
-                return
             with open(self.path, "w") as handle:
                 json.dump(coreDefaults, handle, indent=2)
                 handle.write("\n")

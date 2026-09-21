@@ -1,5 +1,3 @@
-"""One logging setup shared by the core and every plugin built on it."""
-
 import logging
 import os
 import sys
@@ -35,11 +33,6 @@ def _levelFromEnvironment():
 
 
 def applyLogLevel(name):
-    """Set the level for the whole `nemo-repo` logger tree.
-
-    The NEMO_REPO_LOG environment variable always wins, so a user can raise
-    verbosity for one Nemo session without editing the config file.
-    """
     _attachHandler()
     fromEnvironment = os.environ.get("NEMO_REPO_LOG", "").strip().lower()
     if fromEnvironment in _levelNames:
@@ -49,6 +42,5 @@ def applyLogLevel(name):
 
 
 def pluginLogger(name):
-    """Return the logger a plugin should use, e.g. pluginLogger("emblems")."""
     _attachHandler()
     return _rootLogger.getChild(name)

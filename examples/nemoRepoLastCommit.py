@@ -1,16 +1,4 @@
 #!/usr/bin/python3
-"""Example plugin: a "Last Commit" column for Nemo's list view.
-
-Copy this file to ~/.local/share/nemo-python/extensions/ and restart Nemo
-with `nemo -q` to try it. It is about sixty lines of real work because
-nemo-repo-core already owns the config file, the git call and the cache.
-
-The block above the imports is the core bootstrap. Copy it verbatim into
-every plugin: it makes the plugin work whether the core was installed with
-its install.sh or with pip, and it is the only piece that knows where the
-core lives.
-"""
-
 import importlib.util
 import os
 import sys

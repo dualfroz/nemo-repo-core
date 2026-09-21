@@ -1,19 +1,9 @@
 #!/usr/bin/env bash
-# Installs the nemoRepoCore library for the current user. No root needed.
-#
-#   ./install.sh          link the package (edits in this checkout go live)
-#   ./install.sh --copy   copy the package instead of linking it
-#
-# The package is placed in a version independent directory under
-# XDG_DATA_HOME, so a Python upgrade cannot orphan it. Plugins locate it from
-# there; see "Writing a plugin" in README.md.
 set -euo pipefail
 
 sourceDir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 dataHome="${XDG_DATA_HOME:-$HOME/.local/share}"
 installDir="$dataHome/nemo-repo-core"
-configDir="${XDG_CONFIG_HOME:-$HOME/.config}"
-extensionsDir="$dataHome/nemo-python/extensions"
 
 mode="link"
 if [ "${1:-}" = "--copy" ]; then
@@ -49,26 +39,6 @@ fi
 
 coreVersion="$(PYTHONPATH="$installDir" python3 -c 'import nemoRepoCore; print(nemoRepoCore.coreVersion)')"
 echo "Import check passed, core version $coreVersion"
-
-legacyConfig="$configDir/nemo-repo-emblems.json"
-newConfig="$configDir/nemo-repo-core.json"
-if [ -f "$legacyConfig" ] && [ ! -f "$newConfig" ]; then
-  echo
-  echo "Found a config from the pre-split extension:"
-  echo "  $legacyConfig"
-  echo "It will be copied to $newConfig the first time a plugin loads."
-  echo "The old file is left untouched."
-fi
-
-legacyExtension="$extensionsDir/nemo_repo_emblems.py"
-if [ -e "$legacyExtension" ]; then
-  echo
-  echo "WARNING: the pre-split single file extension is still installed:"
-  echo "  $legacyExtension"
-  echo "Running it alongside the new plugins duplicates emblems, columns and"
-  echo "menu entries. Remove it when you are ready to switch over:"
-  echo "  rm \"$legacyExtension\""
-fi
 
 echo
 echo "Core installed. It does nothing on its own: install at least one plugin."
