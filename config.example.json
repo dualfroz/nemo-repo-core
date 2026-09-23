@@ -6,9 +6,14 @@
 
   "indicators": {
     "git_repo": { "enabled": true, "emblem": "emblem-repo-git" },
-    "claude_dir": { "enabled": true, "emblem": "emblem-repo-claude" },
+    "claude_dir": { "enabled": true, "emblem": "emblem-repo-claude", "marker_directory": ".claude" },
     "uncommitted_changes": { "enabled": true, "emblem": "emblem-repo-dirty" },
     "unpushed_commits": { "enabled": true, "emblem": "emblem-repo-unpushed" }
+  },
+
+  "columns": {
+    "branch": true,
+    "status": true
   },
 
   "actions": {
@@ -16,6 +21,7 @@
     "open_editor": true,
     "git_status": true,
     "git_log": true,
+    "git_fetch": true,
     "git_pull": true
   }
 }

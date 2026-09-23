@@ -9,7 +9,7 @@ description = "Shared foundation for repository-aware Nemo file manager plugins"
 readme = "README.md"
 requires-python = ">=3.8"
 license = { text = "MIT" }
-authors = [{ name = "DualFroz" }]
+authors = [{ name = "Michał Fox" }]
 keywords = ["nemo", "cinnamon", "git", "file-manager", "nemo-python"]
 classifiers = [
   "Environment :: X11 Applications :: GTK",
@@ -19,9 +19,6 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "Topic :: Desktop Environment :: File Managers",
 ]
-
-[project.urls]
-Homepage = "https://github.com/dualfroz/nemo-repo-core"
 
 [tool.setuptools]
 packages = ["nemoRepoCore"]
