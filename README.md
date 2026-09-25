@@ -1,136 +1,157 @@
 # nemo-repo-core
 
-The shared foundation for repository-aware plugins for [Nemo](https://github.com/linuxmint/nemo),
-the Cinnamon file manager.
+nemo-repo-core is a small Python library for writing repository-aware
+extensions for [Nemo](https://github.com/linuxmint/nemo), the Cinnamon file
+manager. It owns the parts every such extension needs before it can draw
+anything: one shared config file, a git query layer that cannot block the file
+manager for long, a cache that keeps Nemo from running git on every redraw, and
+the path handling that turns a `Nemo.FileInfo` into a directory git can be
+pointed at. It is a library, not an extension: on its own it changes nothing in
+Nemo. The plugins listed below are built on it.
 
-Nemo can be extended in Python through `nemo-python`. Any extension that wants
-to show something about a git repository ends up writing the same four things
-before it can show anything at all: a config file, a way to call git without
-blocking the file manager, a cache so git is not run once per icon per redraw,
-and the path handling that turns a `Nemo.FileInfo` into a directory git can be
-pointed at. That is roughly 400 lines before the first feature.
-
-This package is those 400 lines, written once. A plugin built on it is a single
-file that reads a repository state and draws something with it.
-
-It is a library, not an extension. On its own it changes nothing about Nemo.
-
-## Plugins built on it
+## Plugins
 
 | Plugin | What it adds |
 | --- | --- |
-| [nemo-repo-emblems](https://github.com/dualfroz/nemo-repo-emblems) | Emblem overlays: is a repository, dirty, unpushed, marker directories |
-| [nemo-repo-columns](https://github.com/dualfroz/nemo-repo-columns) | "Git Branch" and "Git Status" columns in the list view |
-| [nemo-repo-properties](https://github.com/dualfroz/nemo-repo-properties) | A "Git" tab in the folder Properties dialog |
-| [nemo-repo-git-menu](https://github.com/dualfroz/nemo-repo-git-menu) | Right click git actions: status, log, fetch, pull |
-| [nemo-folder-tools](https://github.com/dualfroz/nemo-folder-tools) | "Open Terminal Here" and "Open in Editor" for any folder |
+| nemo-repo-emblems | Emblem overlays: is a repository, has uncommitted changes, has unpushed commits, contains a marker directory or file |
+| nemo-repo-columns | "Git Branch" and "Git Status" columns in the list view |
+| nemo-repo-properties | A "Git" tab in the folder Properties dialog |
+| nemo-repo-git-menu | Right click git actions: status, log, fetch, pull |
+| nemo-folder-tools | "Open Terminal Here" and "Open in Editor" for any folder |
 
-Install only the ones you want. They share this core, so a folder is queried
-once no matter how many of them are running.
+Each plugin is its own repository and needs this core installed. Install only
+the ones you want; they share one cache, so a repository is queried once no
+matter how many plugins are running.
+
+## Features
+
+- **Shared config file.** One JSON file for the core and all plugins,
+  `$XDG_CONFIG_HOME/nemo-repo-core.json` (`~/.config/nemo-repo-core.json` by
+  default), or the path in `NEMO_REPO_CORE_CONFIG`. It is created with the core
+  defaults on first use and re-read whenever it is saved, so changes apply
+  without restarting Nemo. An unreadable or invalid file is ignored with a
+  warning and the last good values stay in effect.
+- **Layered defaults.** Effective values are core defaults, then defaults
+  registered by plugins, then the user's file, merged recursively. Several
+  plugins can contribute keys to the same section, and an empty file is a
+  working config.
+- **Git query layer.** A repository state costs exactly two git calls:
+  `git status --porcelain=2 --branch` and `git log -1`. Each call runs with
+  `GIT_OPTIONAL_LOCKS=0` so it never takes the index lock, discards stderr, is
+  capped at 3 seconds and never raises; a failure is reported in
+  `RepoInfo.error` instead.
+- **Repository state.** `RepoInfo` carries the branch, upstream, ahead and
+  behind counts, staged, unstaged and untracked counts, the last commit (short
+  hash, author, relative date, subject) and derived values: `dirty`,
+  `unpushed`, `detached`, `branchLabel` and a one line `summary` such as
+  `2 ahead, 3 changed, 1 untracked`.
+- **Cache with live invalidation.** Results are cached per repository root for
+  `cache_ttl_seconds`. The core watches `.git` and `.git/refs/heads`; any change
+  there drops the entry at once and asks Nemo to re-query every file object a
+  plugin registered for that repository, so a commit, checkout or fetch shows up
+  without waiting for the TTL. File objects are held by weak reference.
+- **Repository discovery.** `findRepoRoot` checks only the given directory (one
+  `stat`, safe in `update_file_info`), `findEnclosingRepoRoot` walks up at most
+  64 parent directories for on-demand work such as menus. A `.git` file
+  (worktree or submodule) counts as a repository as well as a `.git` directory.
+- **Nemo file helpers.** Convert a `Nemo.FileInfo` to a local path, a local
+  directory path, or the single selected local directory; anything that is not
+  on `file://` yields `None`.
+- **Launchers.** Open a terminal in a directory, optionally running a command
+  and leaving the shell open afterwards, and open a directory in the configured
+  editor. The terminal is `terminal_command` if it is installed, otherwise the
+  first one found of `gnome-terminal`, `x-terminal-emulator`, `tilix`,
+  `konsole`, `xfce4-terminal`, `mate-terminal`, `kitty`, `alacritty`, `xterm`.
+  Each known emulator is called with its own "run this command" flag; unknown
+  ones get `-e`.
+- **Logging.** All messages go to stderr under the `nemo-repo` logger tree.
+  The level comes from `log_level`, and the `NEMO_REPO_LOG` environment
+  variable overrides it.
+- **Version negotiation.** `requireCore("0.1.0")` at plugin import time refuses
+  to load a plugin against an incompatible core with a clear error, instead of
+  letting it fail later.
 
 ## Requirements
 
 - Nemo with `nemo-python` (Debian and Ubuntu based systems: `sudo apt install python-nemo`)
-- Python 3.8 or newer, with PyGObject (`python3-gi`) and the Nemo typelib (`gir1.2-nemo-3.0`)
+- Python 3.8 or newer with PyGObject (`python3-gi`) and the Nemo typelib (`gir1.2-nemo-3.0`)
 - `git` in `PATH`
 
-## Install
+Tested on Linux Mint 22.2 with Cinnamon 6.4.14, Nemo 6.4.5, python-nemo 6.4.0
+and Python 3.12.3. Nothing in the code is Mint specific.
+
+## Install and run
+
+From a checkout of this repository:
 
 ```bash
-git clone https://github.com/dualfroz/nemo-repo-core
-cd nemo-repo-core
 ./install.sh
 ```
 
-`install.sh` symlinks the package into `$XDG_DATA_HOME/nemo-repo-core`
-(`~/.local/share/nemo-repo-core` by default) and verifies that it imports.
+`install.sh` symlinks the `nemoRepoCore` package into
+`$XDG_DATA_HOME/nemo-repo-core` (`~/.local/share/nemo-repo-core` by default),
+checks that it imports and prints the core version. Pass `--copy` to copy the
+package instead of linking it, for example when the checkout is temporary.
 Nothing is written outside your home directory and no root is required.
 
-Pass `--copy` to copy the package instead of linking it, which is what you want
-if the checkout is temporary. `./uninstall.sh` removes it again.
+`./uninstall.sh` removes the installed package and warns about plugins that are
+still installed and now cannot load. Your config file is left in place.
 
-If you prefer a normal Python install, `pip install --user .` also works; the
-plugins find the core either way.
+A normal Python install also works, `pip install --user .`; plugins find the
+core either way.
 
-### Why not site-packages
+The core does nothing until at least one plugin is installed. After installing
+plugins, restart Nemo with `nemo -q`.
 
-Nemo loads extensions from `~/.local/share/nemo-python/extensions`, which is a
-plain directory of scripts and not a package directory, so a plugin there
-cannot import a library sitting next to it by accident. The core therefore
-lives in its own version independent directory under `XDG_DATA_HOME`, and each
-plugin locates it with a short bootstrap block (see below).
+### Why a separate directory and not site-packages
 
-The alternative, dropping the package into
-`~/.local/lib/python3.12/site-packages`, breaks the day the distribution moves
-to Python 3.13: the interpreter stops looking in the old directory and every
-plugin fails at once. A path that does not carry a Python version in it cannot
-have that problem.
+Nemo loads extensions from `~/.local/share/nemo-python/extensions`, a plain
+directory of scripts. The core lives in its own directory under
+`XDG_DATA_HOME` whose path does not contain a Python version, so a distribution
+upgrade from one Python minor version to the next cannot orphan it the way it
+would orphan a package in `~/.local/lib/python3.X/site-packages`. Each plugin
+finds it with a short bootstrap block (see "Writing a plugin").
 
 ## Configuration
 
-One file is shared by the core and every plugin:
-
-```
-~/.config/nemo-repo-core.json
-```
-
-It is created on first use and re-read within a second of being saved, so
-changes take effect without restarting Nemo. Set `NEMO_REPO_CORE_CONFIG` to use
-a different path.
-
-Keys owned by the core:
+`config.example.json` is a complete file with the keys of the whole family. The
+core owns these:
 
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `cache_ttl_seconds` | `5` | How long a repository state may be reused before git is asked again |
-| `editor_command` | `"code"` | Command used by plugins that open an editor |
-| `terminal_command` | `null` | Terminal emulator to use; `null` means auto detect |
-| `log_level` | `"warning"` | `debug`, `info`, `warning`, `error` |
+| `editor_command` | `"code"` | Command used to open a folder in an editor; may contain arguments separated by spaces |
+| `terminal_command` | `null` | Terminal emulator; `null`, or a command that is not installed, means auto detect |
+| `log_level` | `"warning"` | `debug`, `info`, `warning`, `error` or `critical` |
 
-Every plugin documents its own keys in its own README, and registers defaults
-for them at load time, so an empty config file is a working config file. See
-`config.example.json` for a file with the whole family's keys filled in.
+The other sections in the example belong to the plugins and are documented in
+their READMEs:
 
-Set `NEMO_REPO_LOG=debug` in the environment to raise the log level for one
-Nemo session without editing the file. Messages go to stderr, which means the
-terminal you started Nemo from.
+| Section | Plugin |
+| --- | --- |
+| `indicators` | nemo-repo-emblems |
+| `columns` | nemo-repo-columns |
+| `actions.git_status`, `git_log`, `git_fetch`, `git_pull` | nemo-repo-git-menu |
+| `actions.open_terminal`, `open_editor` | nemo-folder-tools |
 
-### Migrating from the single file extension
-
-Earlier versions of this project were one file, `nemo_repo_emblems.py`, with
-its config in `~/.config/nemo-repo-emblems.json`. That file is still
-understood: the first time a plugin loads and no `nemo-repo-core.json` exists,
-the old file is copied over and the original is left untouched. Every key kept
-its name, so nothing needs editing.
-
-To switch over:
+To see log messages, start Nemo from a terminal with a raised level:
 
 ```bash
-# 1. install the core and the plugins you want
-./install.sh
-
-# 2. remove the old extension, otherwise both run and everything is doubled
-rm ~/.local/share/nemo-python/extensions/nemo_repo_emblems.py
-
-# 3. restart the file manager
-nemo -q
+nemo -q; NEMO_REPO_LOG=debug nemo --no-desktop
 ```
-
-To go back, reinstall the old extension and remove the new plugins from
-`~/.local/share/nemo-python/extensions`. The old config file was never modified
-and is still there.
 
 ## Writing a plugin
 
 A plugin is one `.py` file in `~/.local/share/nemo-python/extensions/` that
-subclasses one of the `Nemo` provider interfaces. The core gives you the state;
-you decide what to draw.
+subclasses one of the `Nemo` provider interfaces. `examples/nemoRepoLastCommit.py`
+is a complete working plugin that adds a "Last Commit" column; copy it into the
+extensions directory and run `nemo -q` to try it.
 
-### 1. The bootstrap block
+### 1. Bootstrap block
 
-Copy this verbatim to the top of your plugin. It is the only part that knows
-where the core lives, and it works whether the core was installed with
-`install.sh` or with pip.
+Put this at the top of the plugin. It makes the core importable whether it was
+installed with `install.sh` (searched in `XDG_DATA_HOME`, then `XDG_DATA_DIRS`)
+or with pip.
 
 ```python
 import importlib.util
@@ -153,19 +174,17 @@ def _ensureCoreOnPath():
 _ensureCoreOnPath()
 ```
 
-### 2. Declare the version you were built against
+### 2. Declare the core version
 
 ```python
 from nemoRepoCore import requireCore
 requireCore("0.1.0")
 ```
 
-If the installed core is too old, or from a different incompatible series,
-this raises and Nemo skips the extension with a clear message in the log
-instead of loading a half working one. See "Versioning" for what counts as a
-different series while the core is still `0.x`.
+If the installed core cannot serve that version, this raises
+`CoreVersionError` and Nemo skips the extension.
 
-### 3. Register your defaults
+### 3. Register defaults
 
 ```python
 from nemoRepoCore import coreConfig
@@ -177,8 +196,7 @@ coreConfig.registerDefaults({
 })
 ```
 
-Defaults are merged under the user's file, never over it. Several plugins can
-contribute keys to the same section.
+Defaults are merged below the user's file, never over it.
 
 ### 4. Read state and draw
 
@@ -207,143 +225,157 @@ class MyProvider(GObject.GObject, Nemo.InfoProvider, Nemo.NameAndDescProvider):
         return ["my-plugin:::What it does, shown in Nemo's plugin list"]
 ```
 
-`registerFileObject` is what makes emblems update by themselves: the core
-watches `.git` and asks Nemo to re-query every registered file the moment a
-commit, checkout or fetch changes something. Without it the display only
-refreshes after the TTL expires.
+`update_file_info` runs for every item Nemo draws, so return early for anything
+that is not a local directory and never call git directly from it.
+`registerFileObject` is what makes the display update by itself when `.git`
+changes.
 
-`update_file_info` runs for every item Nemo draws. Keep it cheap: return early
-for anything that is not a local directory, and never call git directly from
-it. `findRepoRoot` costs one `stat`; `repoCache.get` costs nothing on a cache
-hit.
+### 5. Install it
 
-A complete, working example is in `examples/nemoRepoLastCommit.py`: a "Last
-Commit" column in about sixty lines.
-
-### 5. Ship it
-
-Give the file a name unlikely to collide, since Nemo imports every extension as
-a top level module. Then link it into place and restart Nemo:
+Nemo imports every extension as a top level module, so pick a file name that
+will not collide. Link it into place and restart Nemo:
 
 ```bash
 ln -s "$PWD/myPlugin.py" ~/.local/share/nemo-python/extensions/myPlugin.py
 nemo -q
 ```
 
-The five plugins listed above are all built exactly this way; their
-`install.sh` scripts are a reasonable starting point to copy.
-
 ## API
 
-Everything below is importable directly from `nemoRepoCore`.
+Everything below is importable from `nemoRepoCore` and listed in `__all__`.
 
 ### Repository state
 
 | Name | Description |
 | --- | --- |
-| `repoCache.get(repoRoot)` | Cached `RepoInfo`. Recomputes when older than the TTL. |
-| `repoCache.refresh(repoRoot)` | Recompute now, ignoring the TTL. For on demand views. |
-| `repoCache.invalidate(repoRoot=None)` | Drop one entry, or all of them. |
-| `repoCache.registerFileObject(repoRoot, nemoFile)` | Redraw this file when the repository changes. Weak reference. |
-| `repoCache.onInvalidate(callback)` | `callback(repoRoot)` whenever an entry is dropped. |
-| `computeRepoInfo(repoRoot)` | Uncached `RepoInfo`. The primitive behind the cache. |
-| `runGit(arguments, cwd, timeoutSeconds=3)` | stdout as text, or `None` when git could not answer. |
-| `gitBinary` | Absolute path to git, or `None` if it is not installed. |
+| `repoCache.get(repoRoot)` | Cached `RepoInfo`, recomputed when older than the TTL |
+| `repoCache.refresh(repoRoot)` | Recompute now, ignoring the TTL, and store the result |
+| `repoCache.invalidate(repoRoot=None)` | Drop one entry, or all of them |
+| `repoCache.registerFileObject(repoRoot, nemoFile)` | Re-query this file object when the repository changes (weak reference) |
+| `repoCache.onInvalidate(callback)` | Call `callback(repoRoot)` whenever an entry is dropped |
+| `RepoCache(ttlProvider)` | The cache class, for a private instance |
+| `computeRepoInfo(repoRoot)` | Uncached `RepoInfo` |
+| `runGit(arguments, cwd, timeoutSeconds=3)` | stdout as text, or `None` when git could not answer |
+| `gitBinary` | Absolute path of git, or `None` |
+| `RepoInfo`, `LastCommit` | State object and the `(hash, author, relativeDate, subject)` tuple |
 
 `RepoInfo` fields: `root`, `branch`, `upstream`, `ahead`, `behind`,
 `hasUpstream`, `staged`, `unstaged`, `untracked`, `lastCommit`, `error`.
-Properties: `dirty`, `unpushed`, `detached`, `branchLabel`, `summary`.
-`lastCommit` is a `LastCommit(hash, author, relativeDate, subject)` or `None`.
-When `error` is set, treat every other field as unknown.
+Properties: `dirty`, `unpushed` (ahead of upstream, or no upstream at all),
+`detached`, `branchLabel`, `summary`. When `error` is set, treat every other
+field as unknown.
 
 ### Discovery
 
 | Name | Description |
 | --- | --- |
-| `isRepoRoot(path)` | Does this directory itself hold `.git` (directory or worktree file). |
-| `findRepoRoot(path)` | `path` if it is a repository root, else `None`. One stat, safe in hot paths. |
-| `findEnclosingRepoRoot(path)` | Nearest repository root at or above `path`. For menus and other on demand work. |
-| `hasMarkerDirectory(path, name)` | Does `path` directly contain a subdirectory `name`. |
-| `repoInfoFor(path, walkUp=False)` | Cached `RepoInfo` for the repository at or above `path`, else `None`. |
+| `isRepoRoot(path)` | `path` holds `.git` as a directory or a file |
+| `findRepoRoot(path)` | `path` if it is a repository root, else `None` |
+| `findEnclosingRepoRoot(path, maximumDepth=64)` | Nearest repository root at or above `path`, else `None` |
+| `hasMarkerDirectory(path, name)` | `path` directly contains a subdirectory `name` |
+| `repoInfoFor(path, walkUp=False)` | Cached `RepoInfo` for the repository at (or with `walkUp`, above) `path`, else `None` |
 
 ### Nemo objects
 
 | Name | Description |
 | --- | --- |
-| `localPath(nemoFile)` | Filesystem path, or `None` for anything not on `file://`. |
-| `localDirectoryPath(nemoFile)` | Same, but `None` unless it is a directory. |
-| `singleLocalDirectory(files)` | Path of the one selected local directory, else `None`. |
+| `localPath(nemoFile)` | Filesystem path, or `None` for anything not on `file://` |
+| `localDirectoryPath(nemoFile)` | Same, but `None` unless it is a directory |
+| `singleLocalDirectory(files)` | Path of the one selected local directory, else `None` |
 
-### Config, launching, logging
+### Config, launching, logging, versions
 
 | Name | Description |
 | --- | --- |
-| `coreConfig.registerDefaults(defaults)` | Merge a plugin's defaults below the user's file. |
-| `coreConfig.section(name)` | Merged sub-object, `{}` when absent. |
-| `coreConfig.value(name, fallback=None)` | Top level value. |
-| `coreConfig.flag(name, fallback=False)` | Top level boolean. |
-| `coreConfig.sectionFlag(section, key, fallback=False)` | Boolean inside a section, accepting both `true` and `{"enabled": true}`. |
-| `coreConfig.onChange(callback)` | Run after every reload of the file. |
-| `coreConfig.ttlSeconds`, `.editorCommand`, `.terminalCommand`, `.path` | Core settings. |
-| `resolveTerminal()` | Configured terminal, else the first one found. |
-| `launchTerminal(path, shellCommand=None)` | Terminal in `path`, optionally running a command, shell stays open. |
-| `launchEditor(path)` | Open `path` in the configured editor. |
-| `editorAvailable()` | Is the configured editor actually installed. |
-| `pluginLogger(name)` | Logger under the shared `nemo-repo` tree. |
-| `requireCore(minimum)`, `coreVersion`, `CoreVersionError` | Version negotiation. |
+| `coreConfig` | The shared `Config` instance |
+| `coreConfig.registerDefaults(defaults)` | Merge a plugin's defaults below the user's file |
+| `coreConfig.section(name)` | Merged sub-object, `{}` when absent |
+| `coreConfig.value(name, fallback=None)` | Top level value |
+| `coreConfig.flag(name, fallback=False)` | Top level boolean |
+| `coreConfig.sectionFlag(section, key, fallback=False)` | Boolean inside a section; accepts `true` and `{"enabled": true}` |
+| `coreConfig.onChange(callback)` | Call `callback()` after every reload |
+| `coreConfig.ttlSeconds`, `.editorCommand`, `.terminalCommand`, `.path` | Core settings |
+| `Config(path=None)`, `coreDefaults`, `defaultConfigPath()` | Config class, core defaults and the config file location |
+| `resolveTerminal()` | Configured terminal if installed, else the first one found, else `None` |
+| `launchTerminal(path, shellCommand=None)` | Terminal in `path`, optionally running a command; returns `False` on failure |
+| `launchEditor(path)` | Open `path` in the configured editor; returns `False` on failure |
+| `editorAvailable()` | The configured editor command is in `PATH` |
+| `pluginLogger(name)` | Logger under the shared `nemo-repo` tree |
+| `requireCore(minimum)`, `coreVersion`, `CoreVersionError` | Version negotiation |
 
-## Versioning
+Names not in `__all__`, and names with a leading underscore, are internal.
 
-Semantic versioning, enforced at load time by `requireCore`.
+### Versioning
 
-The core is at `0.1.0`, which in semver means the API is not settled yet: its
-only consumers are the five plugins listed above and it has no outside users.
-Until `1.0.0`, any minor bump may remove or rename anything in the API table.
-`requireCore` follows the same rule and treats the minor as the breaking
-component while the major is `0`, so a plugin that asked for `0.1.0` refuses to
-load against `0.2.0` instead of breaking somewhere deeper.
+Semantic versioning, enforced by `requireCore`. While the major version is `0`
+the minor version is the breaking component: a plugin that asked for `0.1.0`
+loads on `0.1.x` and refuses to load on `0.2.0`. From `1.0.0` on, the major
+version is the breaking component and a plugin that asked for `1.0.0` loads on
+any `1.x` at or above it.
 
-From `1.0.0` on, the guarantee below is the written one and holds:
+### Naming
 
-- Within a major version nothing in the API table is removed or renamed, and
-  signatures only ever gain optional arguments. A plugin that asked for `1.0.0`
-  keeps working on `1.4.0`.
-- A major bump may change anything. `requireCore` refuses to run a plugin
-  against a different major version, so the failure is loud and immediate
-  rather than subtle.
+The API is camelCase. The methods Nemo calls on providers
+(`update_file_info`, `get_columns`, `get_file_items` and so on) keep the names
+Nemo requires, and config keys use snake_case JSON spelling.
 
-Anything not in the API table, and anything with a leading underscore, is
-internal either way.
+## Tests
 
-## Naming
+The tests use the standard library `unittest` and need PyGObject
+(`python3-gi`). Run them from the repository root:
 
-The API is camelCase, including in Python where PEP 8 would ask for
-snake_case. That is deliberate rather than an oversight: camelCase is the
-naming convention used across this author's projects, and consistency across
-them is valued over each language's own idiom. The one exception is the methods
-Nemo itself calls (`update_file_info`, `get_columns`, `get_file_items` and
-friends), which have to keep the names the file manager looks for.
+```bash
+python3 -m unittest discover -s tests
+```
 
-## Tested on
+They cover version negotiation, git status parsing and the `RepoInfo`
+summary, config file handling with layered defaults, repository discovery, the
+cache and its invalidation, terminal and editor argument building, and the Nemo
+file helpers. Tests that need git create throwaway repositories (including a
+bare remote for ahead and behind) in a temporary directory and are skipped when
+`git` is not installed. The suite never touches your real config: the shared
+config file is redirected to a temporary path and git runs with an empty global
+config. Behaviour inside a running Nemo is checked by hand.
 
-Linux Mint 22.2 (Zara), Cinnamon 6.4.14, Nemo 6.4.5, python-nemo 6.4.0,
-Python 3.12.3, PyGObject from `python3-gi`. It should work on any distribution
-shipping Nemo with `nemo-python`; nothing here is Mint specific.
+## Project layout
 
-## Troubleshooting
+```
+nemoRepoCore/
+  __init__.py      public API (__all__)
+  Config.py        shared config file, defaults, live reload
+  RepoCache.py     TTL cache and .git watching
+  RepoInfo.py      RepoInfo and LastCommit
+  gitQuery.py      all git subprocess calls
+  discovery.py     repository root detection
+  nemoFiles.py     Nemo.FileInfo to local path
+  launchers.py     terminal and editor launching
+  logs.py          shared logger setup
+  version.py       coreVersion and requireCore
+examples/
+  nemoRepoLastCommit.py   example "Last Commit" column plugin
+tests/
+  support.py              temporary config, git environment and repository helpers
+  test*.py                unittest suites
+config.example.json       config with every key of the family
+install.sh, uninstall.sh  per-user install
+pyproject.toml            metadata for pip install
+```
 
-**A plugin does nothing.** Nemo only loads extensions at startup: `nemo -q`,
-then open a window. Check that the plugin is listed under Edit > Plugins.
+## Limitations
 
-**Nothing in the log.** Start Nemo from a terminal to see the messages:
-`nemo -q; NEMO_REPO_LOG=debug nemo --no-desktop`.
-
-**Emblems do not appear at all.** Nemo shows a limited number of emblems per
-icon and prefers the ones you set by hand. Check that the icons were installed:
-`ls ~/.local/share/icons/hicolor/scalable/emblems`.
-
-**Everything is doubled.** The old single file extension is still installed
-alongside the new plugins; see "Migrating from the single file extension".
+- Linux only, and only Nemo with `nemo-python`.
+- git runs synchronously in Nemo's main thread. Each call is capped at 3
+  seconds, but a very large working tree can make a directory listing pause
+  until the cache is warm.
+- Live invalidation needs a `.git` directory. Worktrees and submodules, where
+  `.git` is a file, are refreshed only when the TTL expires.
+- Changes that do not touch `.git`, such as editing a tracked file or creating
+  an untracked one, show up after the TTL, on the next redraw.
+- `editor_command` and `terminal_command` are split on single spaces; quoted
+  arguments are not supported.
+- Cache entries and directory watches are kept for every repository seen until
+  Nemo exits.
+- The API is `0.x` and may change with any minor release.
 
 ## License
 
